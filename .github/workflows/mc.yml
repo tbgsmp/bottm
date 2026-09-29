@@ -1,1 +1,76 @@
+name: Minecraft Server + AFK Bot
 
+on:
+  workflow_dispatch:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Java + tools
+        run: |
+          sudo apt update
+          sudo apt install -y openjdk-17-jre wget curl
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Create server folder
+        run: mkdir mc
+
+      - name: Download PaperMC
+        run: |
+          cd mc
+          wget -O server.jar https://api.papermc.io/v2/projects/paper/versions/1.20.4/builds/400/downloads/paper-1.20.4-400.jar
+          echo "eula=true" > eula.txt
+
+      - name: Start Minecraft Server
+        run: |
+          cd mc
+          nohup java -Xmx2G -Xms1G -jar server.jar nogui > server.log 2>&1 &
+          sleep 30
+
+      - name: Create AFK Bot
+        run: |
+          cat > afkbot.js << 'EOF'
+          const mineflayer = require('mineflayer')
+
+          const bot = mineflayer.createBot({
+            host: 'nian.fhmc.nl',
+            port: 25565,
+            username: 'ServerTBG',
+            auth: 'offline'
+          })
+
+          bot.on('spawn', () => {
+            console.log('Bot joined server!')
+
+            setInterval(() => {
+
+              bot.setControlState('jump', true)
+
+              setTimeout(() => {
+                bot.setControlState('jump', false)
+              }, 500)
+
+              bot.look(
+                Math.random() * Math.PI * 2,
+                Math.random() * Math.PI / 2,
+                true
+              )
+
+            }, 30000)
+          })
+
+          bot.on('error', err => console.log(err))
+          bot.on('end', () => console.log('Disconnected'))
+          EOF
+
+      - name: Install Mineflayer
+        run: npm install mineflayer
+
+      - name: Start AFK Bot
+        run: node afkbot.js
